@@ -49,8 +49,7 @@
 ## 📁 Repository Contents
 
 - `/docs`: Detailed notes on installation and configuration for each phase.
-- `/scripts`: Any automation or useful configuration scripts.
-- `/images`: Diagrams and screenshots of the lab environment.
+- `/images`: Diagram of the lab environment.
 
 ---
 *This lab was built on physical hardware: [CyberpowerPC], [16GB DDRS 6000MHz RAM], [Storage].*
