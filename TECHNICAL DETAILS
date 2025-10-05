@@ -1,0 +1,130 @@
+Enterprise Home Lab on Proxmox VE
+
+A comprehensive, self-contained home lab project built on Proxmox VE to emulate enterprise-grade IT infrastructure. This project demonstrates the integration of core services including centralized identity management, network security, segmentation, and infrastructure monitoring.
+
+🚀 Lab Overview & Architecture
+
+This project provisions a multi-tier environment within a single Proxmox host. The core components and their network segmentation are outlined below:
+
+Logical Network Diagram
+
+    +-----------------------------------------------------------------------------------+
+    |                            Proxmox Host (Physical/Virtual)                         |
+    | +--------------+     +---------------------+     +-------------------------------+ |
+    | |              |     |                     |     |                               | |
+    | |  pfSense VM  |     |  DC01 (Win Srv)     |     |  Zabbix (Ubuntu Server)       | |
+    | |  (Router)    |     |  - AD DS            |     |  - Monitoring Server          | |
+    | |  - VLAN Trunk|     |  - DNS              |     |                               | |
+    | |              |     |  - DHCP             |     |                               | |
+    | +------+-------+     +---------+---------+     +---------------+---------+-------+ |
+    |        |                       |                                 |                 |
+    |  WAN --+                       | (vmbr1 - LAN)                   | (vmbr1 - LAN)   |
+    |  (vmbr0)                       |                                 |                 |
+    +--------------------------------+---------------------------------+-----------------+
+                                    | (vmbr1 - LAN - 10.0.0.0/24)
+                            +-------+-------+
+                            |   CLIENT01    |
+                            |  (Win 10/11)  |
+                            +---------------+
+
+### VLAN 10 (Servers - 10.10.10.0/24) - Optional Segmentation
+    | +---------------------+     +-------------------------------+ |
+    | |  DC01 (Win Srv)     |     |  Zabbix (Ubuntu Server)       | |
+    | |  - Secondary NIC    |     |  - Secondary NIC              | |
+    | +----------+----------+     +---------------+---------+-------+ |
+    |            |                                  |                 |
+    +------------+----------------------------------+-----------------+
+
+
+⚙️ Technologies & Specifications
+
+| Component               | Technology / Version      | Role & Details                                                                 |
+| ----------------------- | ------------------------- | ------------------------------------------------------------------------------ |
+| Hypervisor          | Proxmox VE 8.x            | Underlying virtualization platform. Managed via web UI (https://<host-ip>:8006) |
+| Identity & Access   | Windows Server 2022 Std   | Domain Controller (home.lab), AD DS, DNS, DHCP (for lab network)                 |
+| Network Security    | pfSense CE 2.7.x          | Core router/firewall, VLAN provisioning, and inter-VLAN routing.                |
+| Monitoring          | Zabbix Server 6.4 LTS     | Centralized monitoring server. Metrics collected via Zabbix Agent 2.            |
+| Client OS           | Windows 11/10             | Domain-joined client for testing GPOs and user authentication.                  |
+| Host System         | -                         | CPU: x86-64 with VT-x/AMD-V enabled. RAM: 32GB (Recommended). Storage: SSD.     |
+
+## 📂 Project Phases & Technical Implementation
+
+Phase 1: Proxmox VE Virtualization Foundation
+
+Objective: Establish the underlying hypervisor layer.
+- Installation: Proxmox VE installed on bare metal from ISO. Filesystem: ext4 (or zfs for advanced setups).
+- Network Configuration: Static IP assigned to the Proxmox management interface (vmbr0).
+- Post-Install: Verified virtualization support in the kernel (kvm-ok). Updated packages via apt.
+
+Phase 2: Active Directory Domain Services Deployment
+
+Objective: Create a centralized identity and management domain.
+- VM Provisioning: Windows Server 2022 VM created with VirtIO drivers for optimal performance. Configuration:
+  # Example Proxmox VM Config Snippet for DC01
+agent: 1
+bios: ovmf
+cores: 2
+memory: 4096
+net0: virtio=BC:24:11:XX:XX:XX,bridge=vmbr1,firewall=1
+scsihw: virtio-scsi-single
+
+- Domain Controller Promotion: Server promoted using Install-WindowsFeature AD-Domain-Services. Forest root: home.lab.
+- DHCP Scope: Authorized and configured a new IPv4 scope (10.0.0.100-10.0.0.200/24) on the DC.
+- Client Integration: Windows 11 client VM created and joined to the domain via Add-Computer PowerShell cmdlet.
+
+Phase 3: Network Segmentation with pfSense
+
+Objective: Implement a secure and segmented network architecture.
+- VM Provisioning: pfSense VM created with two virtual NICs:
+  - vtnet0 (WAN): Bridged to vmbr0 (host NIC, gets IP from home router).
+  - vtnet1 (LAN): Bridged to vmbr1 (lab network, static IP 10.0.0.1/24).
+- Services Configuration:
+  - Enabled DHCP Server on LAN interface to replace the Windows Server DHCP.
+  - Configured System > Advanced > Networking for Hardware Checksum Offloading to Disable.
+- VLAN Implementation:
+  - Created VLAN 10 (Servers) on pfSense (Interfaces > VLANs).
+  - Added new Interface Assignment (OPT1) with static IP 10.10.10.1/24.
+  - Configured firewall rules to permit/deny traffic between VLANs.
+  - In Proxmox, created a new Linux Bridge (vmbr10) tagged for VLAN 10.
+  - Added a secondary network adapter to VMs (DC01, Zabbix) attached to vmbr10.
+
+Phase 4: Infrastructure Monitoring with Zabbix
+
+Objective: Gain observability into lab infrastructure health and performance.
+- Server Deployment: Ubuntu Server 22.04 LTS VM provisioned.
+- Zabbix Installation: Installed via official repository.
+  wget https://repo.zabbix.com/zabbix/6.4/ubuntu/pool/main/z/zabbix-release/zabbix-release_6.4-1+ubuntu22.04_all.deb
+sudo dpkg -i zabbix-release_6.4-1+ubuntu22.04_all.deb
+sudo apt update
+sudo apt install zabbix-server-mysql zabbix-frontend-php zabbix-apache-conf zabbix-sql-scripts zabbix-agent2
+
+- Database Setup: Configured MySQL/MariaDB as the backend database.
+- Agent Configuration: Deployed Zabbix Agent 2 on DC01. Edited zabbix_agent2.conf to point to the Zabbix server IP.
+- Template Linking: In the Zabbix frontend, host DC01 was created and linked to the Template OS Windows by Zabbix agent template for automatic metric collection.
+
+🧪 Skills Demonstrated
+
+- Infrastructure as Code (IaC) Mindset: Reproducible environment provisioning via detailed configuration notes.
+- Systems Administration: Full lifecycle management of Windows Server (AD DS, DNS, DHCP) and Linux (Ubuntu) systems.
+- Networking: Advanced configuration including VLAN trunking, firewall rule sets, static routing, and DHCP relay.
+- Monitoring & Observability: Deployment and configuration of a full-stack monitoring solution (Zabbix Server + Agents) with custom alerting.
+- Troubleshooting: Diagnosed and resolved issues related to VirtIO drivers, network routing, firewall rules, and agent-server communication.
+
+📁 Repository Structure
+
+├── /docs
+│   ├── Phase1_Proxmox-Install.md         # Detailed Proxmox installation and host config
+│   ├── Phase2_Active-Directory.md        # Step-by-step AD DS and DHCP setup
+│   ├── Phase3_pfSense-VLANs.md           # pfSense config and VLAN setup
+│   ├── Phase4_Zabbix-Monitoring.md       # Zabbix server and agent installation
+│   └── /screenshots                      # Supporting configuration screenshots
+├── /configs
+│   ├── zabbix_agent2.conf                # Example Zabbix Agent 2 config for Windows
+│   └── pfSense-backup.xml                # Example pfSense configuration export
+├── /images
+│   └── Network-Diagram.png               # Detailed logical network diagram
+└── README.md
+
+
+---
+This lab is built using free-tier or evaluation software for educational purposes.
