@@ -1,7 +1,7 @@
 ## 🚀 Lab Architecture
 
 [//]: # (This is where you would put a diagram. If you don't have one, you can create a simple one with draw.io or even ASCII art.)
-![Lab Architecture Diagram](./images/architecture-diagram.png) 
+![Lab Architecture Diagram](https://github.com/MonsterDropz/Enterprise-homelab-/blob/main/461D1FF4-F7F6-4A47-B7CA-C3AF6FC92C05%20(1).png)
 
 
 
